@@ -1,6 +1,6 @@
 /* APDS9500_gestures.ino
  * by: Kris Winer, Tlera Corporation, Copyright 2017
- * date: May 1, 2016
+ * date: May 29, 2017
  * license: Beerware - Use this code however you'd like with attribution. If you 
  * find it useful you can buy me a beer some time.
  *
@@ -186,12 +186,11 @@
  #define APDS9500_ADDRESS 0x73
 
  bool intFlag = false;
- uint8_t intFlag1 = 0, intFlag2 = 0;
+ uint8_t intFlag1 = 0, intFlag2 = 0, gestResult, getEnabled;
 
  uint8_t myLed = 26;
- uint8_t intPin = 31;
- uint8_t LEDPower = 8;
-
+ uint8_t intPin = 39;
+ 
  void setup() 
  {
   Serial.begin(115200);
@@ -227,11 +226,9 @@
   pinMode(myLed, OUTPUT);
   digitalWrite(myLed, HIGH);  // start with led off, active HIGH
   pinMode(intPin, INPUT);
-  pinMode(LEDPower, OUTPUT);
-  digitalWrite(LEDPower, HIGH);
   
   /* Initialize Gesture Sensor */
-  // Chose bank 0
+  // Choose bank 0
   writeByte(APDS9500_ADDRESS, APDS9500_R_RegBankSet, 0x00);         // select bank 0
 
   // Define cursor limits
@@ -258,7 +255,7 @@
   writeByte(APDS9500_ADDRESS, APDS9500_R_NoMotionCountThd, 0x06);    // no motion counter threshold
   writeByte(APDS9500_ADDRESS, APDS9500_R_ZDirectionThd, 0x0A);       // gesture detection z threshold
   writeByte(APDS9500_ADDRESS, APDS9500_R_ZDirectionXYThd, 0x0C);     // gesture detection x and y thresholds
-  writeByte(APDS9500_ADDRESS, APDS9500_R_ZDirectionAngleThd, 0x05);  // angle threshol for forward and backward detection
+  writeByte(APDS9500_ADDRESS, APDS9500_R_ZDirectionAngleThd, 0x05);  // angle threshold for forward and backward detection
   writeByte(APDS9500_ADDRESS, APDS9500_R_RotateXYThd, 0x14);         // rotation detection threshold
   writeByte(APDS9500_ADDRESS, APDS9500_R_Filter, 0x3F);              // filter weight and frame position threshold
   writeByte(APDS9500_ADDRESS, APDS9500_R_FilterImage, 0x19);         // use pixel brightness for weak average filter
@@ -281,7 +278,7 @@
   writeByte(APDS9500_ADDRESS, APDS9500_R_LSFT, 0x08);                // shift amount, initialize to 10
   writeByte(APDS9500_ADDRESS, 0x3E,0xFF);                            // don't know
   writeByte(APDS9500_ADDRESS, 0x5E,0x3D);                            // don't know
-/* Sleep mode parameters */
+  /* Sleep mode parameters */
   writeByte(APDS9500_ADDRESS, APDS9500_R_IDLE_TIME_L, 0x96);         // idle time low byte = 150 which is set for ~120 fps
   writeByte(APDS9500_ADDRESS, APDS9500_R_IDLE_TIME_SLEEP_1_L, 0x97); // idle time for weak sleep, set for report rate ~ 120 Hz
   writeByte(APDS9500_ADDRESS, APDS9500_R_IDLE_TIME_SLEEP_2_L, 0xCD); // idle time for deep sleep, low byte
@@ -291,9 +288,25 @@
   writeByte(APDS9500_ADDRESS, APDS9500_R_TG_EnH, 0x01);              // enable time gating
   writeByte(APDS9500_ADDRESS, APDS9500_R_Auto_SLEEP_Mode, 0x35);     // no object weak and deep sleep, object wake
   writeByte(APDS9500_ADDRESS, APDS9500_R_Wake_Up_Sig_Sel, 0x00);     // interrupt on time gate start
- /* Start sensor */
+  /* Start sensor */
   writeByte(APDS9500_ADDRESS, APDS9500_R_SRAM_Read_EnH, 0x01);       //SRAM read enable
 
+  // Change back to bank 0 for data read
+  writeByte(APDS9500_ADDRESS, APDS9500_R_RegBankSet, 0x00);         // select bank 0
+
+  getEnabled = readByte(APDS9500_ADDRESS, APDS9500_R_GestureDetEn);
+  if(getEnabled & 0x10) Serial.println("ROTATE gesture detection enabled");
+  if(getEnabled & 0x20) Serial.println("BACKWARD and FORWARD gesture detection enabled");
+  if(getEnabled & 0x40) Serial.println("UP and DOWN gesture detection enabled");
+  if(getEnabled & 0x80) Serial.println("LEFT and RIGHT gesture detection enabled");
+
+  getEnabled = readByte(APDS9500_ADDRESS, APDS9500_R_WaveEnH);
+  if(getEnabled & 0x80) Serial.println("WAVE gesture detection enabled");
+  //  disable wave gesture
+  //  writeByte(APDS9500_ADDRESS, APDS9500_R_WaveEnH, getEnabled & ~(0x80) );
+  //  getEnabled = readByte(APDS9500_ADDRESS, APDS9500_R_WaveEnH);
+  //  if(getEnabled & 0x80) Serial.println("WAVE gesture detection enabled");
+  
   attachInterrupt(intPin, myHandler, FALLING);
 
  }
@@ -307,6 +320,9 @@ void loop()
   intFlag = false;
   intFlag1 = readByte(APDS9500_ADDRESS, APDS9500_Int_Flag_1);
   intFlag2 = readByte(APDS9500_ADDRESS, APDS9500_Int_Flag_2);
+  gestResult = readByte(APDS9500_ADDRESS, APDS9500_GestureResult);
+
+  if(gestResult & 0x20) {Serial.print("gesture result = "); Serial.println(gestResult & 0x0F);}
 
   if(intFlag1 & 0x01) Serial.println("UP event detected");
   if(intFlag1 & 0x02) Serial.println("DOWN event detected");
@@ -323,8 +339,8 @@ void loop()
   if(intFlag2 & 0x08) Serial.println("WAKE UP TRIGGER event detected");
   if(intFlag2 & 0x80) Serial.println("NO OBJECT event detected");
 
-//  digitalWrite(myLed, LOW); delay(100); digitalWrite(myLed, HIGH); // flash led when interrupt received
- }
+  digitalWrite(myLed, LOW); delay(10); digitalWrite(myLed, HIGH); // flash led when interrupt received
+}
 
 }
 
