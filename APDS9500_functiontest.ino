@@ -1,6 +1,6 @@
 /* APDS9500_functiontest.ino
  * by: Kris Winer, Tlera Corporation, Copyright 2017
- * date: May 1, 2016
+ * date: May 28, 2017
  * license: Beerware - Use this code however you'd like with attribution. If you 
  * find it useful you can buy me a beer some time.
  *
@@ -29,6 +29,10 @@ void setup() {
   Wire.setClock(400000);      // I2C frequency at 400 kHz 
   delay(2000);
  
+  I2Cscan();
+ 
+  writeByte(APDS9500_ADDRESS, APDS9500_R_RegBankSet, 0x00);         // select bank 0, wake up APDS9500 I2C
+
   I2Cscan();
 
   Serial.println("I2C scan done");
